@@ -16,6 +16,10 @@ void checkResetButtonPressed()
     Serial.println("Resetting values");
     lane1.reset();
     lane2.reset();
+
+    pinMode(RESET_BUTTON, OUTPUT);
+    digitalWrite(RESET_BUTTON, HIGH);
+    pinMode(RESET_BUTTON, INPUT);
   }
 }
 

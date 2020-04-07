@@ -8,7 +8,9 @@ private:
   uint8_t pin;
   int laps;
   unsigned int roundStartedAt;
-  unsigned int bestTime;
+  unsigned int bestLap;
+  unsigned int lastLap;
+
   volatile bool haveData;
   volatile uint latestMillis;
   volatile uint debounceMillis;

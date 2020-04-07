@@ -7,19 +7,21 @@
 LaneTimer::LaneTimer(uint8_t pin)
 {
   this->pin = pin;
-  this->laps = 0;
-  this->bestTime = 0;
+  this->laps = -1;
+  this->bestLap = 0;
+  this->lastLap = 0;
   this->roundStartedAt = 0;
 }
 
 void LaneTimer::reset()
 {
-  this->laps = 0;
-  this->bestTime = 0;
+  this->laps = -1;
+  this->bestLap = 0;
+  this->lastLap = 0;
   this->roundStartedAt = 0;
 }
 
-ICACHE_RAM_ATTR void LaneTimer::interruptHandler()
+void LaneTimer::interruptHandler()
 {
   if (this->haveData)
   {
@@ -47,10 +49,15 @@ void LaneTimer::registerLap(unsigned int time)
   if (this->laps > -1)
   {
     unsigned int lapTime = (time - this->roundStartedAt);
-    if (this->bestTime == 0 || lapTime < this->bestTime)
+
+    // Update best time if no time available, or better time
+    if (this->bestLap == 0 || lapTime < this->bestLap)
     {
-      this->bestTime = lapTime;
+      this->bestLap = lapTime;
     }
+
+    // Always store last lap
+    this->lastLap = lapTime;
   }
 
   this->laps++;
@@ -71,42 +78,53 @@ void LaneTimer::loop()
 
 String LaneTimer::shortStats()
 {
-  static char *segment1 = (char *)malloc(5);
-  static char *segment2 = (char *)malloc(5);
-  static char *segment3 = (char *)malloc(5);
+  static char *lapCount = (char *)malloc(5);
+  static char *thisLapTime = (char *)malloc(5);
+  static char *bestLapTime = (char *)malloc(5);
+  static char *lastLapTime = (char *)malloc(5);
 
-  if (this->laps > 0)
+  if (this->laps >= 0)
   {
-    sprintf(segment1, "%02d", this->laps);
+    sprintf(lapCount, "%02d", this->laps);
   }
   else
   {
-    strncpy(segment1, "  ", 3);
+    strncpy(lapCount, "  ", 3);
   }
 
   if (this->roundStartedAt > 0)
   {
-    sprintf(segment2, "%0.1f", (millis() - (int)roundStartedAt) / 1000.0);
+    sprintf(thisLapTime, "%0.1f", (millis() - (int)roundStartedAt) / 1000.0);
   }
   else
   {
-    strncpy(segment2, "-.-", 4);
+    strncpy(thisLapTime, "-.-", 4);
   }
 
-  if (this->bestTime > 0)
+  if (this->bestLap > 0)
   {
-    sprintf(segment3, "%0.1f", this->bestTime / 1000.0);
+    sprintf(bestLapTime, "%0.1f", this->bestLap / 1000.0);
   }
   else
   {
-    strncpy(segment3, "-.-", 4);
+    strncpy(bestLapTime, "-.-", 4);
+  }
+
+  if (this->lastLap > 0)
+  {
+    sprintf(lastLapTime, "%0.1f", this->lastLap / 1000.0);
+  }
+  else
+  {
+    strncpy(lastLapTime, "-.-", 4);
   }
 
   char *stats = (char *)malloc(20);
-  sprintf(stats, "L%s T%ss B%ss  ",
-          segment1,
-          segment2,
-          segment3);
+  sprintf(stats, "%s %s %s %s  ",
+          lapCount,
+          bestLapTime,
+          lastLapTime,
+          thisLapTime);
 
   return String(stats);
 }
