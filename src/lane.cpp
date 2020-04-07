@@ -78,10 +78,10 @@ void LaneTimer::loop()
 
 String LaneTimer::shortStats()
 {
-  static char *lapCount = (char *)malloc(5);
-  static char *thisLapTime = (char *)malloc(5);
-  static char *bestLapTime = (char *)malloc(5);
-  static char *lastLapTime = (char *)malloc(5);
+  static char lapCount[10];
+  static char thisLapTime[10];
+  static char bestLapTime[10];
+  static char lastLapTime[10];
 
   if (this->laps >= 0)
   {
@@ -119,7 +119,7 @@ String LaneTimer::shortStats()
     strncpy(lastLapTime, "-.-", 4);
   }
 
-  char *stats = (char *)malloc(20);
+  static char stats[20];
   sprintf(stats, "%s %s %s %s  ",
           lapCount,
           bestLapTime,
