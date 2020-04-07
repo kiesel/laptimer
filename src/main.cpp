@@ -2,54 +2,31 @@
 #include <ESP8266WiFi.h>
 #include "LiquidCrystal_I2C.h"
 
-#define LANE1_INPUT D7
-#define RESET_BUTTON 16
-#define DEBOUNCE_TIME 250
+#include "config.h"
+#include "lane.h"
+
 LiquidCrystal_I2C lcd(PCF8574_ADDR_A21_A11_A01, 4, 5, 6, 16, 11, 12, 13, 14, POSITIVE);
-
-int laps = -1;
-unsigned int roundStartedAt = 0;
-unsigned int bestLapTime = 0;
-volatile bool haveInterrupt = false;
-volatile unsigned int latestMillis = 0;
-volatile unsigned int debounceMillis = 0;
-
-void handleCircuitClose();
-void handleCircuitOpen();
-
-ICACHE_RAM_ATTR void handleCircuitClose()
-{
-  if (haveInterrupt)
-  {
-    Serial.println("Previous interrupt not consumed.");
-    debounceMillis = millis();
-    return;
-  }
-
-  int deltaT = millis() - debounceMillis;
-  if (deltaT < DEBOUNCE_TIME)
-  {
-    Serial.printf("Debouncer ignored interrupt w/ [%dms].\n", deltaT);
-    debounceMillis = millis();
-    return;
-  }
-
-  Serial.printf("Interrupt deltaT [%dms]\n", deltaT);
-  latestMillis = millis();
-  debounceMillis = latestMillis;
-  haveInterrupt = true;
-}
+LaneTimer lane1 = LaneTimer(LANE1_INPUT);
+LaneTimer lane2 = LaneTimer(LANE2_INPUT);
 
 void checkResetButtonPressed()
 {
   if (digitalRead(RESET_BUTTON) == LOW)
   {
     Serial.println("Resetting values");
-    laps = -1;
-    bestLapTime = 0;
-    roundStartedAt = 0;
-    debounceMillis = 0;
+    lane1.reset();
+    lane2.reset();
   }
+}
+
+ICACHE_RAM_ATTR void interruptHandlerLane1()
+{
+  lane1.interruptHandler();
+}
+
+ICACHE_RAM_ATTR void interruptHandlerLane2()
+{
+  lane2.interruptHandler();
 }
 
 void setup()
@@ -77,8 +54,12 @@ void setup()
 
   // Setup analog read
   Serial.println("Setting up LANE1 input");
+
   pinMode(LANE1_INPUT, INPUT);
-  attachInterrupt(LANE1_INPUT, handleCircuitClose, RISING);
+  attachInterrupt(LANE1_INPUT, interruptHandlerLane1, RISING);
+
+  pinMode(LANE2_INPUT, INPUT);
+  attachInterrupt(LANE2_INPUT, interruptHandlerLane2, RISING);
 
   pinMode(RESET_BUTTON, INPUT);
 }
@@ -86,32 +67,13 @@ void setup()
 void loop()
 {
   lcd.setCursor(0, 0);
-  lcd.printf("L%02d T%0.1fs B%0.1fs  ",
-             laps > 0 ? laps : 0,
-             (roundStartedAt > 0 ? (millis() - (int)roundStartedAt) / 1000.0 : 0.0),
-             bestLapTime > 0 ? bestLapTime / 1000.0 : 0.0);
+  lcd.print(lane1.shortStats());
+  lcd.setCursor(0, 1);
+  lcd.print(lane2.shortStats());
 
-  if (haveInterrupt)
-  {
-    unsigned int triggerMillis = latestMillis;
-    latestMillis = 0;
-    haveInterrupt = false;
-
-    // Complete previous lap
-    if (laps > -1)
-    {
-      unsigned int lapTime = (triggerMillis - roundStartedAt);
-      if (bestLapTime == 0 || lapTime < bestLapTime)
-      {
-
-        bestLapTime = lapTime;
-      }
-    }
-
-    laps++;
-    roundStartedAt = triggerMillis;
-  }
+  lane1.loop();
+  lane2.loop();
 
   checkResetButtonPressed();
-  delay(50);
+  delay(100);
 }
